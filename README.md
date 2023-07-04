@@ -3,4 +3,4 @@
 Folgende Module beinhaltet das ArchivdatenAnomalien Repository:
 
 - __ArchivdatenAnomalien__ ([Dokumentation](ArchivdatenAnomalien))  
-	Kurze Beschreibung des Moduls.
+	Dieses Modul spürt Anomalien im Archiv auf.
