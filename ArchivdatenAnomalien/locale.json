@@ -1,0 +1,23 @@
+{
+    "translations": {
+        "de": {
+            "All logged variables": "Alle geloggten Variablen",
+            "Checked variables for anomalie": "Überprüfung der Variablen auf Anomalien",
+            "Start Date": "Startdatum",
+            "End Date": "Enddatum",
+            "Raw Data": "Rohdaten",
+            "Check Anomalies": "Überprüfe auf Anomalien",
+            "Date": "Datum",
+            "Value before anomalie": "Wert vor Anomalie",
+            "Value": "Wert",
+            "Value after anomalie": "Wert nach Anomalie",
+            "Delete": "Löschen",
+            "Delete selected Anomalies": "Ausgewählte Anomalien löschen",
+            "Anomalies": "Anomalien",
+            "anomalies have been deleted.": "Anomalien wurden gelöscht.",
+            "anomalie deleted.": "Anomalie gelöscht.",
+            "Deletion report": "Löschungsbereicht",
+            "Download last deletion report": "Letzten Löschungsbericht herunterladen"
+        }
+    }
+}
