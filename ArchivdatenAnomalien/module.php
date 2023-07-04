@@ -63,8 +63,6 @@ class ArchivdatenAnomalien extends IPSModule
             }
         }
         $Form['elements'][0]['items'][0]['values'] = $listValues;
-        IPS_LogMessage('Form', print_r($Form, true));
-
         return json_encode($Form);
     }
 
