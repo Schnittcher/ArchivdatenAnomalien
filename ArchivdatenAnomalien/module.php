@@ -78,7 +78,6 @@ class ArchivdatenAnomalien extends IPSModule
                     if ($listValue['Delete']) {
                         $Date = strtotime($listValue['Date']);
                         AC_DeleteVariableData($archiveID, $listValue['VariableID'], $Date, $Date);
-                        AC_ReAggregateVariable($archiveID, $listValue['VariableID']);
                         $deletedValues[] = $listValue;
                         $deleted++;
                     }
@@ -90,6 +89,7 @@ class ArchivdatenAnomalien extends IPSModule
                     $this->UpdateFormField('PopupInfoLabel', 'caption', $deleted . ' ' . $this->Translate('anomalie deleted.'));
                 }
                 $this->UpdateFormField('PopupInfo', 'visible', true);
+                AC_ReAggregateVariable($archiveID, $listValue['VariableID']);
             }
         }
         $this->checkAnomalies();
