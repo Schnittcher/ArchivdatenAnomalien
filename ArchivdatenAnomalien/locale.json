@@ -17,7 +17,8 @@
             "anomalies have been deleted.": "Anomalien wurden gelöscht.",
             "anomalie deleted.": "Anomalie gelöscht.",
             "Deletion report": "Löschungsbereicht",
-            "Download last deletion report": "Letzten Löschungsbericht herunterladen"
+            "Download last deletion report": "Letzten Löschungsbericht herunterladen",
+            "Select all entries to delete": "Alle zu löschenden Einträge auswählen"
         }
     }
 }

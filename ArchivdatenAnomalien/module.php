@@ -88,13 +88,27 @@ class ArchivdatenAnomalien extends IPSModule
                 if ($deleted == 1) {
                     $this->UpdateFormField('PopupInfoLabel', 'caption', $deleted . ' ' . $this->Translate('anomalie deleted.'));
                 }
-                $this->UpdateFormField('PopupInfo', 'visible', true);
-                AC_ReAggregateVariable($archiveID, $listValue['VariableID']);
-            }
+                       }
         }
+        $this->UpdateFormField('PopupInfo', 'visible', true);
+        AC_ReAggregateVariable($archiveID, $listValue['VariableID']);
         $this->checkAnomalies();
         $this->arrayToCSV($deletedValues);
     }
+
+    public function setAllListEntriesActive($resultList) {
+        $resultList = (array) $resultList;
+        $listValues = [];
+        foreach ($resultList as $tmpValue) {
+            if (is_array($tmpValue)) {
+                foreach ($tmpValue as $listValue) {
+                    $listValue['Delete'] = true;
+                    $listValues[] = $listValue;
+                }
+            }
+    }
+    $this->UpdateFormField('resultList','values',json_encode($listValues));
+}
 
     public function checkAnomalies(bool $rawData = false)
     {
