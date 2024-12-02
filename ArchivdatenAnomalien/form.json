@@ -18,6 +18,7 @@
                         {
                             "caption": "Variable ID",
                             "name": "VariableID",
+                            "quickFilter" : true,
                             "width": "600x",
                             "edit": {
                                 "type": "SelectVariable",
