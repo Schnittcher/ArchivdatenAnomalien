@@ -156,8 +156,9 @@ class ArchivdatenAnomalien extends IPSModule
                 }
             }
         }
-
         $this->UpdateFormField('resultList', 'values', json_encode($resultListValues));
+
+        return $resultListValues;
     }
 
     public function addCheckedVariables($variableID)
