@@ -15,13 +15,14 @@ class ArchivdatenAnomalien extends IPSModule
         //Never delete this line!
         parent::Create();
         $this->RegisterPropertyInteger('LoggedVariable', 0);
-        $this->RegisterPropertyString('CheckedVariables', '{}');
-        $this->RegisterPropertyString('StartDate', '');
-        $this->RegisterPropertyString('EndDate', '');
+        $this->RegisterPropertyString('CheckedVariables', '[]');
+        $this->RegisterPropertyString('StartDate', '{"year":0,"month":0,"day":0}');
+        $this->RegisterPropertyString('EndDate', '{"year":0,"month":0,"day":0}');
         $this->RegisterPropertyBoolean('rawData', false);
         $this->RegisterAttributeString('lastDeletedValues', '');
 
-        $this->SetBuffer('CheckedVariables', '{}');
+        $this->SetBuffer('CheckedVariables', '[]');
+        $this->SetBuffer('LastCheck', '');
 
         $this->RegisterHook('/hook/DeletionReport/' . $this->InstanceID);
     }
@@ -68,94 +69,91 @@ class ArchivdatenAnomalien extends IPSModule
 
     public function deleteAnomalies($resultList)
     {
+        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
+
         $deletedValues = [];
-        $deleted = 0;
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-        $resultList = (array) $resultList;
-        foreach ($resultList as $tmpValue) {
-            if (is_array($tmpValue)) {
-                foreach ($tmpValue as $listValue) {
-                    if ($listValue['Delete']) {
-                        $Date = strtotime($listValue['Date']);
-                        AC_DeleteVariableData($archiveID, $listValue['VariableID'], $Date, $Date);
-                        $deletedValues[] = $listValue;
-                        $deleted++;
-                    }
-                }
+        $affectedVariables = [];
+        foreach ($this->extractRows($resultList) as $row) {
+            if (empty($row['Delete'])) {
+                continue;
             }
-            if ($deleted > 0) {
-                $this->UpdateFormField('PopupInfoLabel', 'caption', $deleted . ' ' . $this->Translate('anomalies have been deleted.'));
-                if ($deleted == 1) {
-                    $this->UpdateFormField('PopupInfoLabel', 'caption', $deleted . ' ' . $this->Translate('anomalie deleted.'));
-                }
-                       }
+            $timeStamp = $this->getRowTimeStamp($row);
+            if ($timeStamp === null) {
+                continue;
+            }
+            AC_DeleteVariableData($archiveID, (int) $row['VariableID'], $timeStamp, $timeStamp);
+            $deletedValues[] = $row;
+            $affectedVariables[(int) $row['VariableID']] = true;
         }
-        $this->UpdateFormField('PopupInfo', 'visible', true);
-        AC_ReAggregateVariable($archiveID, $listValue['VariableID']);
-        $this->checkAnomalies();
+
+        $deleted = count($deletedValues);
+        if ($deleted == 0) {
+            $this->showPopup($this->Translate('No anomalies selected.'));
+            return;
+        }
+
+        foreach (array_keys($affectedVariables) as $variableID) {
+            AC_ReAggregateVariable($archiveID, $variableID);
+        }
         $this->arrayToCSV($deletedValues);
-    }
 
-    public function setAllListEntriesActive($resultList) {
-        $resultList = (array) $resultList;
-        $listValues = [];
-        foreach ($resultList as $tmpValue) {
-            if (is_array($tmpValue)) {
-                foreach ($tmpValue as $listValue) {
-                    $listValue['Delete'] = true;
-                    $listValues[] = $listValue;
-                }
-            }
-    }
-    $this->UpdateFormField('resultList','values',json_encode($listValues));
-}
-
-    public function checkAnomalies(bool $rawData = false)
-    {
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-        //$variableID = $this->ReadPropertyInteger('LoggedVariable');
-        $listVariableIDs = json_decode($this->ReadPropertyString('CheckedVariables'), true);
-        $aggregationType = 1;
-        $propStartDate = json_decode($this->ReadPropertyString('StartDate'), true);
-        $propEndDate = json_decode($this->ReadPropertyString('EndDate'), true);
-
-        $startDate = strtotime($propStartDate['day'] . '.' . $propStartDate['month'] . '.' . $propStartDate['year'] . '00:00:00') - 86400;
-        $endDate = strtotime($propEndDate['day'] . '.' . $propEndDate['month'] . '.' . $propEndDate['year'] . '23:59:59') + 86400;
-
-        $resultListValues = [];
-        foreach ($listVariableIDs as $valueVariableID) {
-            $variableID = $valueVariableID['VariableID'];
-            if (!$rawData) {
-                $values = AC_GetAggregatedValues($archiveID, $variableID, $aggregationType, $startDate, $endDate, 0);
-
-                $filteredValues = $this->filter_variable($values, $rawData, $variableID);
-
-                foreach ($filteredValues as $Value) {
-                    $valueStartDate = strtotime($Value['Date']); // - 172800; //Value Datum - zwei Tag
-                        $valueEndDate = strtotime($Value['Date']); // + 172800; //Value Datum + ein Tag
-
-                        $rawValues = AC_GetLoggedValues($archiveID, $variableID, $valueEndDate, $endDate, 0);
-                    $filteredRawValues = $this->filter_variable($rawValues, true, $variableID);
-                    if (count($filteredRawValues) > 0) {
-                        foreach ($filteredRawValues as $rawValue) {
-                            if (array_search($rawValue['Date'], array_column($resultListValues, 'Date')) === false) {
-                                array_push($resultListValues, $rawValue);
-                            }
-                        }
-                    }
-                }
-            } else {
-                $values = AC_GetLoggedValues($archiveID, $variableID, $startDate, $endDate, 0);
-                $filteredRawValues = $this->filter_variable($values, true, $variableID);
-                if (count($filteredRawValues) > 0) {
-                    foreach ($filteredRawValues as $rawValue) {
-                        if (array_search($rawValue['Date'], array_column($resultListValues, 'Date')) === false) {
-                            array_push($resultListValues, $rawValue);
-                        }
-                    }
-                }
-            }
+        if ($deleted == 1) {
+            $this->showPopup($deleted . ' ' . $this->Translate('anomalie deleted.'));
+        } else {
+            $this->showPopup($deleted . ' ' . $this->Translate('anomalies have been deleted.'));
         }
+
+        //Liste mit den gleichen Parametern wie bei der letzten Prüfung neu laden
+        $lastCheck = json_decode($this->GetBuffer('LastCheck'), true);
+        if (is_array($lastCheck)) {
+            $resultListValues = $this->collectAnomalies((bool) $lastCheck['rawData'], (int) $lastCheck['startDate'], (int) $lastCheck['endDate'], (array) $lastCheck['variableIDs']);
+            $this->UpdateFormField('resultList', 'values', json_encode($resultListValues));
+        }
+    }
+
+    public function setAllListEntriesActive($resultList)
+    {
+        $listValues = [];
+        foreach ($this->extractRows($resultList) as $row) {
+            $row['Delete'] = true;
+            $listValues[] = $row;
+        }
+        $this->UpdateFormField('resultList', 'values', json_encode($listValues));
+    }
+
+    public function checkAnomalies(bool $rawData = false, $startDate = null, $endDate = null)
+    {
+        //Datum aus dem Formular verwenden, sonst die gespeicherte Konfiguration
+        $start = $this->parseDate($startDate ?? $this->ReadPropertyString('StartDate'), false);
+        $end = $this->parseDate($endDate ?? $this->ReadPropertyString('EndDate'), true);
+
+        if ($start === null || $end === null) {
+            $this->showPopup($this->Translate('Please select a valid date range.'));
+            return [];
+        }
+        if ($start > $end) {
+            $this->showPopup($this->Translate('Start date must not be after end date.'));
+            return [];
+        }
+
+        //Der Buffer entspricht dem aktuellen Stand der Liste im Formular (auch ungespeichert)
+        $listVariableIDs = json_decode($this->GetBuffer('CheckedVariables'), true);
+        if (!is_array($listVariableIDs)) {
+            $listVariableIDs = [];
+        }
+        $variableIDs = array_map('intval', array_column($listVariableIDs, 'VariableID'));
+
+        $startDate = $start - 86400;
+        $endDate = $end + 86400;
+
+        $this->SetBuffer('LastCheck', json_encode([
+            'rawData'     => $rawData,
+            'startDate'   => $startDate,
+            'endDate'     => $endDate,
+            'variableIDs' => $variableIDs
+        ]));
+
+        $resultListValues = $this->collectAnomalies($rawData, $startDate, $endDate, $variableIDs);
         $this->UpdateFormField('resultList', 'values', json_encode($resultListValues));
 
         return $resultListValues;
@@ -165,8 +163,11 @@ class ArchivdatenAnomalien extends IPSModule
     {
         if ($variableID > 0) {
             $values = json_decode($this->GetBuffer('CheckedVariables'), true);
+            if (!is_array($values)) {
+                $values = [];
+            }
 
-            if (array_search($variableID, array_column($values, 'VariableID')) === false) {
+            if (array_search((int) $variableID, array_map('intval', array_column($values, 'VariableID')), true) === false) {
                 $values[] = [
                     'VariableID'        => $variableID,
                     'editable'          => false
@@ -180,8 +181,15 @@ class ArchivdatenAnomalien extends IPSModule
     public function deleteCheckedVariables($variableID)
     {
         $values = json_decode($this->GetBuffer('CheckedVariables'), true);
+        if (!is_array($values)) {
+            return;
+        }
+        $values = array_values($values);
 
-        $key = array_search($variableID, array_column($values, 'VariableID'));
+        $key = array_search((int) $variableID, array_map('intval', array_column($values, 'VariableID')), true);
+        if ($key === false) {
+            return;
+        }
         unset($values[$key]);
         $values = array_values($values);
         $this->SetBuffer('CheckedVariables', json_encode($values));
@@ -190,27 +198,152 @@ class ArchivdatenAnomalien extends IPSModule
 
     public function DownloadDeletionReport()
     {
-        echo '/hook/DeletionReport/' . $this->InstanceID;
+        //Der Button hat das Attribut "download": bei einer Data-URL speichert die Konsole sie als Datei.
+        //Nur zurückgeben, das echo steht im onClick (Ausgaben aus Modulfunktionen werden als Warning umhüllt).
+        $csv = $this->buildDeletionReport();
+        if ($csv == '') {
+            return $this->Translate('No deletion report available.');
+        }
+        return 'data:text/csv;base64,' . base64_encode($csv);
     }
 
     protected function ProcessHookData()
     {
-        $csv = $this->Translate('Date') . ';' . $this->Translate('VariableID') . ';' . $this->Translate('Value before anomalie') . ';' . $this->Translate('Value') . ';' . $this->Translate('Value after anomalie') . PHP_EOL;
-        $csv .= $this->ReadAttributeString('lastDeletedValues');
-        if ($csv != '') {
-            header('Content-Type: text/csv;charset=utf-8');
-            header('Content-Length: ' . strlen($csv));
-            header('Content-Disposition: filename="' . $this->Translate('Deletion report') . '.csv"');
-            echo $csv;
+        $csv = $this->buildDeletionReport();
+        if ($csv == '') {
+            http_response_code(404);
+            echo $this->Translate('No deletion report available.');
+            return;
         }
+
+        header('Content-Type: text/csv;charset=utf-8');
+        header('Content-Length: ' . strlen($csv));
+        header('Content-Disposition: attachment; filename="' . $this->Translate('Deletion report') . '.csv"');
+        echo $csv;
+    }
+
+    private function buildDeletionReport()
+    {
+        $report = $this->ReadAttributeString('lastDeletedValues');
+        if ($report == '') {
+            return '';
+        }
+        $csv = $this->Translate('Date') . ';' . $this->Translate('VariableID') . ';' . $this->Translate('Value before anomalie') . ';' . $this->Translate('Value') . ';' . $this->Translate('Value after anomalie') . PHP_EOL;
+        return $csv . $report;
+    }
+
+    private function collectAnomalies(bool $rawData, int $startDate, int $endDate, array $variableIDs)
+    {
+        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
+        $aggregationType = 1;
+
+        //Schlüssel VariableID|TimeStamp verhindert Doppelte, ohne Treffer anderer Variablen zu verlieren
+        $resultListValues = [];
+        foreach ($variableIDs as $variableID) {
+            if (!$rawData) {
+                $values = AC_GetAggregatedValues($archiveID, $variableID, $aggregationType, $startDate, $endDate, 0);
+
+                $filteredValues = $this->filter_variable($values, $rawData, $variableID);
+
+                foreach ($filteredValues as $Value) {
+                    $valueEndDate = $Value['TimeStamp'];
+
+                    $rawValues = AC_GetLoggedValues($archiveID, $variableID, $valueEndDate, $endDate, 0);
+                    $filteredRawValues = $this->filter_variable($rawValues, true, $variableID);
+                    foreach ($filteredRawValues as $rawValue) {
+                        $resultListValues[$variableID . '|' . $rawValue['TimeStamp']] = $rawValue;
+                    }
+                }
+            } else {
+                $values = AC_GetLoggedValues($archiveID, $variableID, $startDate, $endDate, 0);
+                $filteredRawValues = $this->filter_variable($values, true, $variableID);
+                foreach ($filteredRawValues as $rawValue) {
+                    $resultListValues[$variableID . '|' . $rawValue['TimeStamp']] = $rawValue;
+                }
+            }
+        }
+        return array_values($resultListValues);
+    }
+
+    /**
+     * Wandelt ein SelectDate-Wert (JSON-String, Array oder Objekt) in einen Timestamp.
+     * Gibt null zurück, wenn kein gültiges Datum gewählt ist.
+     */
+    private function parseDate($value, bool $endOfDay)
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+        $value = (array) $value;
+        if (!isset($value['day'], $value['month'], $value['year'])) {
+            return null;
+        }
+        $day = (int) $value['day'];
+        $month = (int) $value['month'];
+        $year = (int) $value['year'];
+        if (!checkdate($month, $day, $year)) {
+            return null;
+        }
+        if ($endOfDay) {
+            return mktime(23, 59, 59, $month, $day, $year);
+        }
+        return mktime(0, 0, 0, $month, $day, $year);
+    }
+
+    /**
+     * Die Liste wird je nach Aufrufweg unterschiedlich verschachtelt übergeben.
+     * Gibt alle Zeilen (Arrays mit VariableID) als flache Liste zurück.
+     */
+    private function extractRows($data)
+    {
+        if (is_string($data)) {
+            $data = json_decode($data, true);
+        }
+        if (is_object($data)) {
+            $data = (array) $data;
+        }
+        if (!is_array($data)) {
+            return [];
+        }
+        if (isset($data['VariableID'])) {
+            return [$data];
+        }
+        $rows = [];
+        foreach ($data as $entry) {
+            $rows = array_merge($rows, $this->extractRows($entry));
+        }
+        return $rows;
+    }
+
+    private function getRowTimeStamp($row)
+    {
+        if (isset($row['TimeStamp'])) {
+            return (int) $row['TimeStamp'];
+        }
+        //Fallback für Zeilen ohne TimeStamp
+        $timeStamp = strtotime((string) ($row['Date'] ?? ''));
+        return $timeStamp === false ? null : $timeStamp;
+    }
+
+    private function showPopup(string $text)
+    {
+        $this->UpdateFormField('PopupInfoLabel', 'caption', $text);
+        $this->UpdateFormField('PopupInfo', 'visible', false);
+        $this->UpdateFormField('PopupInfo', 'visible', true);
     }
 
     private function arrayToCSV($values)
     {
         $csv = '';
         foreach ($values as $value) {
-            unset($value['Delete']); //Entferne lösch Flag
-            $csv .= implode(';', $value) . PHP_EOL;
+            //Nur die Berichtsspalten, ohne Lösch-Flag und TimeStamp
+            $csv .= implode(';', [
+                $value['Date'],
+                $value['VariableID'],
+                $value['ValueBefore'],
+                $value['Value'],
+                $value['ValueAfter']
+            ]) . PHP_EOL;
         }
         $this->WriteAttributeString('lastDeletedValues', $csv);
     }
@@ -241,6 +374,7 @@ class ArchivdatenAnomalien extends IPSModule
                 // lösche mittleren Wert
                 $failedValues[] = [
                     'Date'        => date('d.m.Y H:i:s', $logData[$i - 1]['TimeStamp']),
+                    'TimeStamp'   => $logData[$i - 1]['TimeStamp'],
                     'VariableID'  => $variableID,
                     'ValueBefore' => $logData[$i][$keyValue],
                     'Value'       => $logData[$i - 1][$keyValue],

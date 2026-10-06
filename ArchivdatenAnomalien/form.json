@@ -84,7 +84,7 @@
         {
             "type": "Button",
             "caption": "Check Anomalies",
-            "onClick": "AA_checkAnomalies($id, $rawData);"
+            "onClick": "AA_checkAnomalies($id, $rawData, null, null);"
         },
         {
             "type": "List",
@@ -96,6 +96,12 @@
                     "caption": "Date",
                     "name": "Date",
                     "width": "200px"
+                },
+                {
+                    "caption": "TimeStamp",
+                    "name": "TimeStamp",
+                    "width": "0px",
+                    "visible": false
                 },
                 {
                     "caption": "VariableID",
@@ -144,8 +150,8 @@
                 {
                     "type": "Button",
                     "caption": "Download last deletion report",
-                    "link": true,
-                    "onClick": "AA_DownloadDeletionReport($id);"
+                    "download": "DeletionReport.csv",
+                    "onClick": "echo AA_DownloadDeletionReport($id);"
                 }
             ]
         },

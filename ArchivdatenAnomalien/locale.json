@@ -18,7 +18,12 @@
             "anomalie deleted.": "Anomalie gelöscht.",
             "Deletion report": "Löschungsbereicht",
             "Download last deletion report": "Letzten Löschungsbericht herunterladen",
-            "Select all entries to delete": "Alle zu löschenden Einträge auswählen"
+            "Select all entries to delete": "Alle zu löschenden Einträge auswählen",
+            "VariableID": "Variablen-ID",
+            "No anomalies selected.": "Es sind keine Anomalien zum Löschen ausgewählt.",
+            "Please select a valid date range.": "Bitte einen gültigen Zeitraum (Start- und Enddatum) auswählen.",
+            "Start date must not be after end date.": "Das Startdatum darf nicht nach dem Enddatum liegen.",
+            "No deletion report available.": "Es ist kein Löschungsbericht vorhanden."
         }
     }
 }
