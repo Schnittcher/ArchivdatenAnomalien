@@ -23,7 +23,7 @@ Zusätzlich erstellt das Modul eine Bericht mit allen Werten welche gelöscht wo
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 7.0
+- IP-Symcon ab Version 8.1
 
 ### 3. Software-Installation
 

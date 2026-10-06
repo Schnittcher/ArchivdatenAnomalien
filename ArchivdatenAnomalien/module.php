@@ -2,14 +2,8 @@
 
 declare(strict_types=1);
 
-eval('declare(strict_types=1);namespace ArchivdatenAnomalien {?>' . file_get_contents(__DIR__ . '/../libs/vendor/SymconModulHelper/DebugHelper.php') . '}');
-eval('declare(strict_types=1);namespace ArchivdatenAnomalien {?>' . file_get_contents(__DIR__ . '/../libs/vendor/SymconModulHelper/WebhookHelper.php') . '}');
-
-class ArchivdatenAnomalien extends IPSModule
+class ArchivdatenAnomalien extends IPSModuleStrict
 {
-    use \ArchivdatenAnomalien\DebugHelper;
-    use \ArchivdatenAnomalien\WebhookHelper;
-
     private const ARCHIVE_CONTROL_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
     private const EMPTY_DATE = '{"year":0,"month":0,"day":0}';
     //Blockgröße der Rohwert-Abfragen (Maximum von AC_GetLoggedValues laut Dokumentation)
@@ -20,7 +14,7 @@ class ArchivdatenAnomalien extends IPSModule
     private const THRESHOLD_ABSOLUTE = 0;
     private const THRESHOLD_PERCENT = 1;
 
-    public function Create()
+    public function Create(): void
     {
         //Never delete this line!
         parent::Create();
@@ -35,21 +29,16 @@ class ArchivdatenAnomalien extends IPSModule
         $this->SetBuffer('LastCheck', '');
     }
 
-    public function ApplyChanges()
+    public function ApplyChanges(): void
     {
         //Never delete this line!
         parent::ApplyChanges();
 
         $checkedVariables = $this->ReadPropertyString('CheckedVariables');
         $this->SetBuffer('CheckedVariables', $checkedVariables);
-
-        //Der Webhook für den Löschbericht wird nicht mehr benötigt, alten Eintrag entfernen
-        if (IPS_GetKernelRunlevel() == KR_READY) {
-            $this->UnregisterHook('/hook/DeletionReport/' . $this->InstanceID);
-        }
     }
 
-    public function GetConfigurationForm()
+    public function GetConfigurationForm(): string
     {
         //Reset Liste CheckedVariables, falls nicht gespeichert wurde
         $checkedVariables = $this->ReadPropertyString('CheckedVariables');
@@ -74,7 +63,7 @@ class ArchivdatenAnomalien extends IPSModule
         return json_encode($Form);
     }
 
-    public function deleteAnomalies($resultList)
+    public function deleteAnomalies(mixed $resultList): void
     {
         $archiveID = $this->getArchiveID();
         if ($archiveID == 0) {
@@ -134,7 +123,7 @@ class ArchivdatenAnomalien extends IPSModule
         }
     }
 
-    public function setAllListEntriesActive($resultList)
+    public function setAllListEntriesActive(mixed $resultList): void
     {
         $listValues = [];
         foreach ($this->extractRows($resultList) as $row) {
@@ -144,7 +133,7 @@ class ArchivdatenAnomalien extends IPSModule
         $this->UpdateFormField('resultList', 'values', json_encode($listValues));
     }
 
-    public function checkAnomalies(bool $rawData = false, $startDate = null, $endDate = null)
+    public function checkAnomalies(bool $rawData = false, mixed $startDate = null, mixed $endDate = null): array
     {
         if ($this->getArchiveID() == 0) {
             $this->showPopup($this->Translate('No archive control instance found.'));
@@ -192,7 +181,7 @@ class ArchivdatenAnomalien extends IPSModule
         return $resultListValues;
     }
 
-    public function addCheckedVariables($variableID)
+    public function addCheckedVariables(int $variableID): void
     {
         if ($variableID > 0) {
             $values = json_decode($this->GetBuffer('CheckedVariables'), true);
@@ -211,7 +200,7 @@ class ArchivdatenAnomalien extends IPSModule
         }
     }
 
-    public function deleteCheckedVariables($variableID)
+    public function deleteCheckedVariables(int $variableID): void
     {
         $values = json_decode($this->GetBuffer('CheckedVariables'), true);
         if (!is_array($values)) {
@@ -229,7 +218,7 @@ class ArchivdatenAnomalien extends IPSModule
         $this->UpdateFormField('CheckedVariables', 'values', json_encode($values));
     }
 
-    public function DownloadDeletionReport()
+    public function DownloadDeletionReport(): string
     {
         //Der Button hat das Attribut "download": bei einer Data-URL speichert die Konsole sie als Datei.
         //Nur zurückgeben, das echo steht im onClick (Ausgaben aus Modulfunktionen werden als Warning umhüllt).
@@ -240,7 +229,7 @@ class ArchivdatenAnomalien extends IPSModule
         return 'data:text/csv;base64,' . base64_encode($csv);
     }
 
-    private function getArchiveID()
+    private function getArchiveID(): int
     {
         $ids = IPS_GetInstanceListByModuleID(self::ARCHIVE_CONTROL_GUID);
         if (count($ids) == 0) {
@@ -252,7 +241,7 @@ class ArchivdatenAnomalien extends IPSModule
     /**
      * Setzt die Werte einer Liste im Formular anhand ihres Namens, auch in verschachtelten Elementen.
      */
-    private function setListValues(array &$elements, string $name, array $values)
+    private function setListValues(array &$elements, string $name, array $values): bool
     {
         foreach ($elements as &$element) {
             if (($element['name'] ?? '') === $name) {
@@ -266,7 +255,7 @@ class ArchivdatenAnomalien extends IPSModule
         return false;
     }
 
-    private function buildDeletionReport()
+    private function buildDeletionReport(): string
     {
         $report = $this->ReadAttributeString('lastDeletedValues');
         if ($report == '') {
@@ -276,7 +265,7 @@ class ArchivdatenAnomalien extends IPSModule
         return $csv . $report;
     }
 
-    private function collectAnomalies(bool $rawData, int $startDate, int $endDate, array $variableIDs, float $threshold, int $thresholdType)
+    private function collectAnomalies(bool $rawData, int $startDate, int $endDate, array $variableIDs, float $threshold, int $thresholdType): array
     {
         $archiveID = $this->getArchiveID();
         if ($archiveID == 0) {
@@ -327,7 +316,7 @@ class ArchivdatenAnomalien extends IPSModule
      * Die beiden ältesten Werte eines Blocks werden dem nächsten vorangestellt, damit auch Spitzen
      * an der Blockgrenze erkannt werden.
      */
-    private function scanLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate, float $threshold, int $thresholdType)
+    private function scanLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate, float $threshold, int $thresholdType): array
     {
         $found = [];
         $overlap = [];
@@ -351,7 +340,7 @@ class ArchivdatenAnomalien extends IPSModule
     /**
      * Fasst sich überlappende oder direkt aufeinanderfolgende Zeitfenster zusammen.
      */
-    private function mergeWindows(array $windows)
+    private function mergeWindows(array $windows): array
     {
         usort($windows, function ($a, $b)
         {
@@ -369,7 +358,7 @@ class ArchivdatenAnomalien extends IPSModule
         return $merged;
     }
 
-    private function setProgress(int $percent, bool $visible)
+    private function setProgress(int $percent, bool $visible): void
     {
         $this->UpdateFormField('Progress', 'current', $percent);
         $this->UpdateFormField('Progress', 'visible', $visible);
@@ -379,7 +368,7 @@ class ArchivdatenAnomalien extends IPSModule
      * Wandelt einen SelectDate-Wert (JSON-String, Array oder Objekt) in einen Timestamp.
      * Gibt null zurück, wenn kein gültiges Datum gewählt ist.
      */
-    private function parseDate($value, bool $endOfDay)
+    private function parseDate(mixed $value, bool $endOfDay): ?int
     {
         if (is_string($value)) {
             $value = json_decode($value, true);
@@ -404,7 +393,7 @@ class ArchivdatenAnomalien extends IPSModule
      * Die Liste wird je nach Aufrufweg unterschiedlich verschachtelt übergeben.
      * Gibt alle Zeilen (Arrays mit VariableID) als flache Liste zurück.
      */
-    private function extractRows($data)
+    private function extractRows(mixed $data): array
     {
         if (is_string($data)) {
             $data = json_decode($data, true);
@@ -425,7 +414,7 @@ class ArchivdatenAnomalien extends IPSModule
         return $rows;
     }
 
-    private function getRowTimeStamp($row)
+    private function getRowTimeStamp(array $row): ?int
     {
         if (isset($row['TimeStamp'])) {
             return (int) $row['TimeStamp'];
@@ -435,14 +424,14 @@ class ArchivdatenAnomalien extends IPSModule
         return $timeStamp === false ? null : $timeStamp;
     }
 
-    private function showPopup(string $text)
+    private function showPopup(string $text): void
     {
         $this->UpdateFormField('PopupInfoLabel', 'caption', $text);
         $this->UpdateFormField('PopupInfo', 'visible', false);
         $this->UpdateFormField('PopupInfo', 'visible', true);
     }
 
-    private function arrayToCSV($values)
+    private function arrayToCSV(array $values): void
     {
         $csv = '';
         foreach ($values as $value) {
@@ -463,7 +452,7 @@ class ArchivdatenAnomalien extends IPSModule
      * Richtungen größer als der Schwellwert). Der Schwellwert ist absolut oder in Prozent des größten
      * Betrags der drei Werte.
      */
-    private function filterVariable(array $logData, bool $rawData, int $variableID, float $threshold, int $thresholdType)
+    private function filterVariable(array $logData, bool $rawData, int $variableID, float $threshold, int $thresholdType): array
     {
         $keyValue = 'Avg';
         if ($rawData) {
