@@ -1,109 +1,61 @@
 # ArchivdatenAnomalien
-Das Modul kann Anomalien im Archiv erkennen.
-Die Anomalien werden in einer Liste angezeigt und können direkt entfernt werden.
-Zusätzlich erstellt das Modul eine Bericht mit allen Werten welche gelöscht worden sind.
+Das Modul spürt Anomalien (einzelne Ausreißer) im Archiv geloggter Zählervariablen auf und zeigt sie in einer Liste an. Ausgewählte Werte können direkt aus dem Archiv gelöscht werden. Über jede Löschung erstellt das Modul einen Bericht, der als CSV-Datei heruntergeladen werden kann. Die Instanz wird manuell über "Instanz hinzufügen" angelegt und bedient sich über ihr Konfigurationsformular. Eine Archiv-Instanz (Archive Control) wird vorausgesetzt.
 
-### Inhaltsverzeichnis
-
+## Inhaltsverzeichnis
 - [ArchivdatenAnomalien](#archivdatenanomalien)
-    - [Inhaltsverzeichnis](#inhaltsverzeichnis)
-    - [1. Funktionsumfang](#1-funktionsumfang)
-    - [2. Voraussetzungen](#2-voraussetzungen)
-    - [3. Software-Installation](#3-software-installation)
-    - [4. Einrichten der Instanzen in IP-Symcon](#4-einrichten-der-instanzen-in-ip-symcon)
-    - [5. Statusvariablen und Profile](#5-statusvariablen-und-profile)
-    - [6. WebFront](#6-webfront)
-    - [7. PHP-Befehlsreferenz](#7-php-befehlsreferenz)
-    - [8. Statuscodes und Fehlerdiagnose](#8-statuscodes-und-fehlerdiagnose)
-    - [9. Entwicklung und Tests](#9-entwicklung-und-tests)
+  - [Inhaltsverzeichnis](#inhaltsverzeichnis)
+  - [1. Konfiguration](#1-konfiguration)
+  - [2. Variablen](#2-variablen)
+  - [3. Funktionen](#3-funktionen)
+  - [4. Spenden](#4-spenden)
+  - [5. Lizenz](#5-lizenz)
 
-### 1. Funktionsumfang
+## 1. Konfiguration
 
-* Aufspüren von Anomalien im Archiv
-* Entfernen der Anomalien
-* Anzeige eines Löschungsbericht
+Feld | Beschreibung
+------------ | ----------------
+Alle geloggten Zählervariablen | Alle geloggten Variablen, die im Archiv als Zähler (Aggregationstyp "Zähler") konfiguriert sind. Mit dem Button ">>" werden sie in die Liste der zu prüfenden Variablen übernommen.
+Überprüfung der Variablen auf Anomalien | Die zur Überprüfung ausgewählten Variablen. Mit dem Button "<<" werden sie wieder entfernt. Die Liste wirkt sofort auf die Überprüfung, dauerhaft gespeichert wird sie mit "Änderungen übernehmen".
+Startdatum | Erster Tag, ab dem auf Anomalien geprüft wird. Standard: leer, vor der Überprüfung muss ein Zeitraum ausgewählt werden. Das Datum wird aus der gespeicherten Konfiguration gelesen, Änderungen müssen daher vor der Überprüfung mit "Änderungen übernehmen" gespeichert werden.
+Enddatum | Letzter Tag der Überprüfung, gleiche Regeln wie beim Startdatum. Liegt das Startdatum nach dem Enddatum, wechselt die Instanz in den Status 203.
+Schwellwert | Ab welcher Abweichung ein Wert als Anomalie gilt. Erkannt wird ein Wert, der sich von seinen beiden Nachbarwerten in entgegengesetzter Richtung um mehr als den Schwellwert unterscheidet (Spitze nach oben oder unten). Standard: 0,1. Ein negativer Wert setzt die Instanz in den Status 201.
+Art des Schwellwerts | "Absolut" (Standard): Der Schwellwert gilt als Wert der Variable. "Relativ": Der Schwellwert gilt in Prozent des größten Betrags der drei betrachteten Werte. Ein unbekannter Wert setzt die Instanz in den Status 202.
+Rohdaten | Ob die Rohdaten oder aggregierte Daten geprüft werden. Bei aggregierten Daten werden zunächst die Tagesmittelwerte geprüft und nur an auffälligen Tagen (sowie am Vor- und Folgetag) die Rohdaten untersucht.
+Überprüfe auf Anomalien | Startet die Überprüfung. Ein Fortschrittsbalken zeigt den Stand je Variable.
+Liste mit Anomalien | Zeigt je Anomalie den Wert vor und nach dem auffälligen Wert sowie den Wert selbst. In der Spalte "Löschen" werden die Einträge ausgewählt, die gelöscht werden sollen.
+Alle zu löschenden Einträge auswählen | Markiert alle Einträge der Liste zum Löschen.
+Ausgewählte Anomalien löschen | Löscht die markierten Werte nach einer Rückfrage unwiderruflich aus dem Archiv und aggregiert die betroffenen Variablen neu. Danach wird die Liste mit den Einstellungen der letzten Überprüfung neu geladen. Ohne Auswahl wird nichts gelöscht.
+Letzten Löschungsbericht herunterladen | Lädt den Bericht der letzten Löschung als CSV-Datei (Datum, Variablen-ID, Wert vor der Anomalie, Wert, Wert nach der Anomalie). Der Bericht wird vor dem Löschen erstellt.
 
-### 2. Voraussetzungen
+## 2. Variablen
+Das Modul legt keine Variablen und keine Profile an.
 
-- IP-Symcon ab Version 8.1
-- Eine Archiv-Instanz (Archive Control) mit geloggten Variablen
-
-### 3. Software-Installation
-
-* Über den Module Store das 'ArchivdatenAnomalien'-Modul installieren.
-
-### 4. Einrichten der Instanzen in IP-Symcon
-
- Unter 'Instanz hinzufügen' kann das 'ArchivdatenAnomalien'-Modul mithilfe des Schnellfilters gefunden werden.  
-	- Weitere Informationen zum Hinzufügen von Instanzen in der [Dokumentation der Instanzen](https://www.symcon.de/service/dokumentation/konzepte/instanzen/#Instanz_hinzufügen)
-
-__Konfigurationsseite__:
-
-Name     | Beschreibung
--------- | ------------------
-Alle geloggten Zählervariablen         | In dieser Liste werden alle geloggten Variablen angezeigt, die im Archiv als Zähler (Aggregationstyp "Zähler") konfiguriert sind. Sie können mit dem Button ">>" in die Liste der zu prüfenden Variablen aufgenommen werden.
-Überprüfung der Variablen auf Anomalien | In dieser Liste werden alle Variablen aufgelistet, welche zur Überprüfung ausgewählt wurden. Mit dem Button "<<" können diese aus der Liste wieder entfernt werden.
-Startdatum | Das Startdatum, ab welchem Tag auf Anomalien geprüft werden soll. Standard: leer, ein Zeitraum muss vor der Überprüfung ausgewählt werden.
-Enddatum | Das Enddatum, bis welchem Tag auf Anomalien geprüft werden soll. Start- und Enddatum werden aus der gespeicherten Konfiguration gelesen, Änderungen müssen daher vor der Überprüfung mit "Änderungen übernehmen" gespeichert werden.
-Schwellwert | Ab welcher Abweichung ein Wert als Anomalie gilt. Ein Wert wird erkannt, wenn er sich von beiden Nachbarwerten in entgegengesetzter Richtung um mehr als den Schwellwert unterscheidet (Spitze nach oben oder unten). Standard: 0,1.
-Art des Schwellwerts | "Absolut": Der Schwellwert gilt als Wert der Variable. "Relativ": Der Schwellwert gilt in Prozent des größten Betrags der drei betrachteten Werte.
-Rohdaten | Ob die Rohdaten oder aggregierte Daten geprüft werden sollen. Bei aggregierten Daten werden zunächst die Tagesmittelwerte geprüft und nur an auffälligen Tagen (sowie dem Vor- und Folgetag) die Rohdaten untersucht.
-Überprüfung auf Anomalien | Mit klick auf diesen Button wird die Überprüfung gestartet.
-Liste mit Anomalien | In dieser Liste werden die Anomalien aufgezeigt, es wird jeweils der Wert vor der erkannten Anomalie, sowie der Wert der Anomalie und der Wert nach der Anomalie angezeigt. In der Liste können die Werte, welche gelöscht werden sollen ausgewählt werden und mit einem Klick auf den Button "Ausgewählte Anomalien löschen" gelöscht werden. Vor dem Löschen erscheint eine Rückfrage.
-Letzten Löschungsbericht herunterladen | Mit einem Klick auf diesen Button wird ein Bericht der letzten Löschung als CSV-Datei heruntergeladen. Der Bericht wird vor dem eigentlichen Löschen erstellt.
-
-
-### 5. Statusvariablen und Profile
-
-Es werden keine Variablen oder Profile angelegt.
-
-### 6. WebFront
-
-Das Modul hat keine Darstellung im WebFront. Es wird über das Konfigurationsformular der Instanz bedient.
-
-### 7. PHP-Befehlsreferenz
-
+## 3. Funktionen
 Die Funktionen werden vom Konfigurationsformular genutzt und können auch in Skripten aufgerufen werden.
 
-```php
-AA_checkAnomalies(int $InstanzID, bool $Rohdaten): array
-```
+`array AA_checkAnomalies(integer $InstanzID, boolean $Rohdaten);`
 Prüft die ausgewählten Variablen im gespeicherten Zeitraum mit dem gespeicherten Schwellwert und gibt die gefundenen Anomalien zurück (Date, TimeStamp, VariableID, ValueBefore, Value, ValueAfter). Bei ungültigem Zeitraum wird eine leere Liste zurückgegeben.
 
-```php
-AA_deleteAnomalies(int $InstanzID, $Liste)
-```
+`void AA_deleteAnomalies(integer $InstanzID, mixed $Liste);`
 Löscht die Einträge der übergebenen Liste, bei denen `Delete` gesetzt ist, aus dem Archiv und aggregiert die betroffenen Variablen neu.
 
-```php
-AA_setAllListEntriesActive(int $InstanzID, $Liste)
-```
-Markiert alle Einträge der Liste zum Löschen.
+`void AA_setAllListEntriesActive(integer $InstanzID, mixed $Liste);`
+Markiert alle Einträge der übergebenen Liste zum Löschen und aktualisiert die Liste im geöffneten Formular.
 
-```php
-AA_addCheckedVariables(int $InstanzID, int $VariablenID)
-AA_deleteCheckedVariables(int $InstanzID, int $VariablenID)
-```
-Fügt eine Variable zur Liste der zu prüfenden Variablen hinzu bzw. entfernt sie.
+`void AA_addCheckedVariables(integer $InstanzID, integer $VariablenID);`
+Fügt eine Variable zur Liste der zu prüfenden Variablen hinzu.
 
-```php
-AA_DownloadDeletionReport(int $InstanzID): string
-```
+`void AA_deleteCheckedVariables(integer $InstanzID, integer $VariablenID);`
+Entfernt eine Variable aus der Liste der zu prüfenden Variablen.
+
+`string AA_DownloadDeletionReport(integer $InstanzID);`
 Gibt den letzten Löschungsbericht als Data-URL (`data:text/csv;base64,…`) zurück. Ist noch kein Bericht vorhanden, wird ein Hinweistext zurückgegeben.
 
-### 8. Statuscodes und Fehlerdiagnose
+## 4. Spenden
+Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:
 
-Status | Bedeutung
------- | ---------
-102 | Das Modul ist aktiv.
-201 | Der Schwellwert ist negativ.
-202 | Die Art des Schwellwerts ist unbekannt.
-203 | Das Startdatum liegt nach dem Enddatum.
+<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=EK4JRP87XLSHW" target="_blank"><img src="https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_LG.gif" border="0" /></a> <a href="https://www.amazon.de/hz/wishlist/ls/3JVWED9SZMDPK?ref_=wl_share" target="_blank">Amazon Wunschzettel</a>
 
-Ein leerer Zeitraum ist beim Übernehmen zulässig. Er wird erst bei der Überprüfung verlangt, dann erscheint der Hinweis, einen gültigen Zeitraum auszuwählen.
+## 5. Lizenz
 
-Wird keine Archiv-Instanz gefunden, meldet das Modul dies beim Prüfen und Löschen. Hinweise zur Ausführung stehen im Debug-Fenster der Instanz.
-
-### 9. Entwicklung und Tests
-
-Die Tests liegen unter `tests/` (PHPUnit mit den Symcon-Stubs als Submodul `tests/stubs`). Die Prüfung im Modulordner läuft mit dem Kommando `symcon-check`. Repository nach dem Klonen mit `git submodule update --init --recursive` vervollständigen.
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
