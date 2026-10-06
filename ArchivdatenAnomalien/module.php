@@ -12,7 +12,7 @@ class ArchivdatenAnomalien extends IPSModule
 
     private const ARCHIVE_CONTROL_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
     private const EMPTY_DATE = '{"year":0,"month":0,"day":0}';
-    //Ab dieser Anzahl Werte pro AC_GetLoggedValues-Abfrage kann das Ergebnis abgeschnitten sein
+    //Blockgröße der Rohwert-Abfragen (Maximum von AC_GetLoggedValues laut Dokumentation)
     private const LOGGED_VALUES_LIMIT = 10000;
     //Stufe für AC_GetAggregatedValues: 1 = täglich
     private const AGGREGATION_LEVEL_DAILY = 1;
@@ -306,8 +306,7 @@ class ArchivdatenAnomalien extends IPSModule
             }
 
             foreach ($windows as $window) {
-                $rawValues = $this->getAllLoggedValues($archiveID, $variableID, $window[0], $window[1]);
-                foreach ($this->filterVariable($rawValues, true, $variableID, $threshold, $thresholdType) as $rawValue) {
+                foreach ($this->scanLoggedValues($archiveID, $variableID, $window[0], $window[1], $threshold, $thresholdType) as $rawValue) {
                     $resultListValues[$variableID . '|' . $rawValue['TimeStamp']] = $rawValue;
                 }
             }
@@ -322,22 +321,31 @@ class ArchivdatenAnomalien extends IPSModule
     }
 
     /**
-     * Holt alle Rohwerte eines Zeitraums. AC_GetLoggedValues begrenzt die Anzahl (laut Dokumentation 10000,
-     * auf Kernel 9.1 wurden 50000 beobachtet) und liefert die neuesten zuerst. Ab 10000 Werten wird deshalb
-     * ab dem ältesten erhaltenen Wert weitergelesen, bis eine Abfrage weniger Werte liefert.
+     * Prüft die Rohwerte eines Zeitraums blockweise auf Anomalien. AC_GetLoggedValues liefert die neuesten
+     * Werte zuerst; bei vollem Block wird ab dem ältesten erhaltenen Wert weitergelesen. So liegen höchstens
+     * LOGGED_VALUES_LIMIT Werte gleichzeitig im Speicher (das PHP-Speicherlimit von Symcon ist klein).
+     * Die beiden ältesten Werte eines Blocks werden dem nächsten vorangestellt, damit auch Spitzen
+     * an der Blockgrenze erkannt werden.
      */
-    private function getAllLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate)
+    private function scanLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate, float $threshold, int $thresholdType)
     {
-        $allValues = [];
+        $found = [];
+        $overlap = [];
         while ($endDate >= $startDate) {
-            $chunk = AC_GetLoggedValues($archiveID, $variableID, $startDate, $endDate, 0);
-            $allValues = array_merge($allValues, $chunk);
-            if (count($chunk) < self::LOGGED_VALUES_LIMIT) {
+            $chunk = AC_GetLoggedValues($archiveID, $variableID, $startDate, $endDate, self::LOGGED_VALUES_LIMIT);
+            $count = count($chunk);
+            if ($count == 0) {
                 break;
             }
-            $endDate = $chunk[count($chunk) - 1]['TimeStamp'] - 1;
+            $found = array_merge($found, $this->filterVariable(array_merge($overlap, $chunk), true, $variableID, $threshold, $thresholdType));
+            if ($count < self::LOGGED_VALUES_LIMIT) {
+                break;
+            }
+            $overlap = array_slice($chunk, -2);
+            $endDate = $chunk[$count - 1]['TimeStamp'] - 1;
+            unset($chunk);
         }
-        return $allValues;
+        return $found;
     }
 
     /**
