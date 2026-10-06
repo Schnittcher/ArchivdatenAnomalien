@@ -23,7 +23,7 @@ Zusätzlich erstellt das Modul eine Bericht mit allen Werten welche gelöscht wo
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 6.0
+- IP-Symcon ab Version 7.0
 
 ### 3. Software-Installation
 
@@ -41,7 +41,7 @@ Name     | Beschreibung
 Alle geloggten Variablen         | In dieser Liste werden alle geloggten Variablen angezeigt, welche mit dem Button ">>" in die Liste der zu prüfenden Variablen aufgenommen werden können.
 Überprüfung der Variablen auf Anomalien | In dieserListe werden alle Variablen aufgelistet, welche zur Überprüfung ausgewählt wurden. Mit dem Button "<<" können diese aus der Liste wieder entfernt werden.
 Startdatum | Das Startdatum, ab welchem Tag auf Anomalien geprüft werden soll.
-Enddatum | Das Enddatum, bis welchem Tag auf Anomalien geprüft werden soll.
+Enddatum | Das Enddatum, bis welchem Tag auf Anomalien geprüft werden soll. Start- und Enddatum werden aus der gespeicherten Konfiguration gelesen, Änderungen müssen daher vor der Überprüfung mit "Änderungen übernehmen" gespeichert werden.
 Rohdaten | Ob die Rohdaten oder aggregierte Daten geprüft werden sollen.
 Überprüfung auf Anomalien | Mit klick auf diesen Button wird die Überprüfung gestartet.
 Liste mit Anomalien | In dieser Liste werden die Anomalien aufgezeigt, es wird jeweils der Wert vor der erkannten Anomalie, sowie der Wert der Anomalie und der Wert nach der Anomalie angezeigt. In der Liste können die Werte, welche gelöscht werden sollen ausgewählt werden und mit ienem klick auf den Button "Ausgewählte Anomalien löschen" gelöscht werden.
