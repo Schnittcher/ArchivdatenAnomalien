@@ -13,6 +13,11 @@ class ArchivdatenAnomalien extends IPSModuleStrict
     //Schwellwert-Arten
     private const THRESHOLD_ABSOLUTE = 0;
     private const THRESHOLD_PERCENT = 1;
+    //Instanzstatus
+    private const STATUS_ACTIVE = 102;
+    private const STATUS_THRESHOLD_NEGATIVE = 201;
+    private const STATUS_THRESHOLD_TYPE_INVALID = 202;
+    private const STATUS_DATE_RANGE_INVALID = 203;
 
     public function Create(): void
     {
@@ -36,6 +41,8 @@ class ArchivdatenAnomalien extends IPSModuleStrict
 
         $checkedVariables = $this->ReadPropertyString('CheckedVariables');
         $this->SetBuffer('CheckedVariables', $checkedVariables);
+
+        $this->SetStatus($this->validateConfiguration());
     }
 
     public function GetConfigurationForm(): string
@@ -133,16 +140,16 @@ class ArchivdatenAnomalien extends IPSModuleStrict
         $this->UpdateFormField('resultList', 'values', json_encode($listValues));
     }
 
-    public function checkAnomalies(bool $rawData = false, mixed $startDate = null, mixed $endDate = null): array
+    public function checkAnomalies(bool $rawData = false): array
     {
         if ($this->getArchiveID() == 0) {
             $this->showPopup($this->Translate('No archive control instance found.'));
             return [];
         }
 
-        //Datum aus dem Formular verwenden, sonst die gespeicherte Konfiguration
-        $start = $this->parseDate($startDate ?? $this->ReadPropertyString('StartDate'), false);
-        $end = $this->parseDate($endDate ?? $this->ReadPropertyString('EndDate'), true);
+        //Der Zeitraum kommt aus der gespeicherten Konfiguration
+        $start = $this->parseDate($this->ReadPropertyString('StartDate'), false);
+        $end = $this->parseDate($this->ReadPropertyString('EndDate'), true);
 
         if ($start === null || $end === null) {
             $this->showPopup($this->Translate('Please select a valid date range.'));
@@ -227,6 +234,26 @@ class ArchivdatenAnomalien extends IPSModuleStrict
             return $this->Translate('No deletion report available.');
         }
         return 'data:text/csv;base64,' . base64_encode($csv);
+    }
+
+    /**
+     * Prüft die gespeicherten Properties und liefert den passenden Instanzstatus.
+     * Ein leerer Zeitraum ist zulässig, er wird erst bei der Prüfung der Anomalien verlangt.
+     */
+    private function validateConfiguration(): int
+    {
+        if ($this->ReadPropertyFloat('Threshold') < 0) {
+            return self::STATUS_THRESHOLD_NEGATIVE;
+        }
+        if (!in_array($this->ReadPropertyInteger('ThresholdType'), [self::THRESHOLD_ABSOLUTE, self::THRESHOLD_PERCENT], true)) {
+            return self::STATUS_THRESHOLD_TYPE_INVALID;
+        }
+        $start = $this->parseDate($this->ReadPropertyString('StartDate'), false);
+        $end = $this->parseDate($this->ReadPropertyString('EndDate'), true);
+        if ($start !== null && $end !== null && $start > $end) {
+            return self::STATUS_DATE_RANGE_INVALID;
+        }
+        return self::STATUS_ACTIVE;
     }
 
     private function getArchiveID(): int

@@ -30,6 +30,9 @@
             "Start date must not be after end date.": "Das Startdatum darf nicht nach dem Enddatum liegen.",
             "No deletion report available.": "Es ist kein Löschungsbericht vorhanden.",
             "No archive control instance found.": "Es wurde keine Archiv-Instanz gefunden.",
+            "Module is active": "Das Modul ist aktiv",
+            "Threshold must not be negative": "Der Schwellwert darf nicht negativ sein",
+            "Unknown threshold type": "Unbekannte Art des Schwellwerts",
             "Donations / Gifts": "Spenden / Schenkung",
             "This module is free for non-commercial use, donations to support the author are accepted here:    ": "Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:    "
         }

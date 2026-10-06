@@ -18,7 +18,7 @@
                         {
                             "caption": "Variable ID",
                             "name": "VariableID",
-                            "quickFilter" : true,
+                            "quickFilter": true,
                             "width": "600px",
                             "edit": {
                                 "type": "SelectVariable",
@@ -111,7 +111,7 @@
         {
             "type": "Button",
             "caption": "Check Anomalies",
-            "onClick": "AA_checkAnomalies($id, $rawData, null, null);"
+            "onClick": "AA_checkAnomalies($id, $rawData);"
         },
         {
             "type": "ProgressBar",
@@ -235,5 +235,26 @@
             ]
         }
     ],
-    "status": []
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Module is active"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Threshold must not be negative"
+        },
+        {
+            "code": 202,
+            "icon": "error",
+            "caption": "Unknown threshold type"
+        },
+        {
+            "code": 203,
+            "icon": "error",
+            "caption": "Start date must not be after end date."
+        }
+    ]
 }
