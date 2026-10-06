@@ -1,29 +1,37 @@
 {
     "translations": {
         "de": {
-            "All logged variables": "Alle geloggten Variablen",
-            "Checked variables for anomalie": "Überprüfung der Variablen auf Anomalien",
+            "All logged counter variables": "Alle geloggten Zählervariablen",
+            "Checked variables for anomaly": "Überprüfung der Variablen auf Anomalien",
             "Start Date": "Startdatum",
             "End Date": "Enddatum",
+            "Threshold": "Schwellwert",
+            "Threshold type": "Art des Schwellwerts",
+            "Absolute (value)": "Absolut (Wert)",
+            "Relative (percent)": "Relativ (Prozent)",
             "Raw Data": "Rohdaten",
             "Check Anomalies": "Überprüfe auf Anomalien",
+            "Checking variables...": "Variablen werden geprüft...",
             "Date": "Datum",
-            "Value before anomalie": "Wert vor Anomalie",
+            "VariableID": "Variablen-ID",
+            "Value before anomaly": "Wert vor Anomalie",
             "Value": "Wert",
-            "Value after anomalie": "Wert nach Anomalie",
+            "Value after anomaly": "Wert nach Anomalie",
             "Delete": "Löschen",
             "Delete selected Anomalies": "Ausgewählte Anomalien löschen",
-            "Anomalies": "Anomalien",
+            "The selected values are permanently deleted from the archive. Continue?": "Die ausgewählten Werte werden endgültig aus dem Archiv gelöscht. Fortfahren?",
             "anomalies have been deleted.": "Anomalien wurden gelöscht.",
-            "anomalie deleted.": "Anomalie gelöscht.",
-            "Deletion report": "Löschungsbereicht",
+            "anomaly deleted.": "Anomalie gelöscht.",
+            "Deletion report": "Löschungsbericht",
             "Download last deletion report": "Letzten Löschungsbericht herunterladen",
             "Select all entries to delete": "Alle zu löschenden Einträge auswählen",
-            "VariableID": "Variablen-ID",
             "No anomalies selected.": "Es sind keine Anomalien zum Löschen ausgewählt.",
             "Please select a valid date range.": "Bitte einen gültigen Zeitraum (Start- und Enddatum) auswählen.",
             "Start date must not be after end date.": "Das Startdatum darf nicht nach dem Enddatum liegen.",
-            "No deletion report available.": "Es ist kein Löschungsbericht vorhanden."
+            "No deletion report available.": "Es ist kein Löschungsbericht vorhanden.",
+            "No archive control instance found.": "Es wurde keine Archiv-Instanz gefunden.",
+            "Donations / Gifts": "Spenden / Schenkung",
+            "This module is free for non-commercial use, donations to support the author are accepted here:    ": "Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:    "
         }
     }
 }

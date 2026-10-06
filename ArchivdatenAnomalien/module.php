@@ -10,27 +10,29 @@ class ArchivdatenAnomalien extends IPSModule
     use \ArchivdatenAnomalien\DebugHelper;
     use \ArchivdatenAnomalien\WebhookHelper;
 
+    private const ARCHIVE_CONTROL_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
+    private const EMPTY_DATE = '{"year":0,"month":0,"day":0}';
+    //Maximale Anzahl Werte pro AC_GetLoggedValues-Abfrage
+    private const LOGGED_VALUES_LIMIT = 10000;
+    //Stufe für AC_GetAggregatedValues: 1 = täglich
+    private const AGGREGATION_LEVEL_DAILY = 1;
+    //Schwellwert-Arten
+    private const THRESHOLD_ABSOLUTE = 0;
+    private const THRESHOLD_PERCENT = 1;
+
     public function Create()
     {
         //Never delete this line!
         parent::Create();
-        $this->RegisterPropertyInteger('LoggedVariable', 0);
         $this->RegisterPropertyString('CheckedVariables', '[]');
-        $this->RegisterPropertyString('StartDate', '{"year":0,"month":0,"day":0}');
-        $this->RegisterPropertyString('EndDate', '{"year":0,"month":0,"day":0}');
-        $this->RegisterPropertyBoolean('rawData', false);
+        $this->RegisterPropertyString('StartDate', self::EMPTY_DATE);
+        $this->RegisterPropertyString('EndDate', self::EMPTY_DATE);
+        $this->RegisterPropertyFloat('Threshold', 0.1);
+        $this->RegisterPropertyInteger('ThresholdType', self::THRESHOLD_ABSOLUTE);
         $this->RegisterAttributeString('lastDeletedValues', '');
 
         $this->SetBuffer('CheckedVariables', '[]');
         $this->SetBuffer('LastCheck', '');
-
-        $this->RegisterHook('/hook/DeletionReport/' . $this->InstanceID);
-    }
-
-    public function Destroy()
-    {
-        //Never delete this line!
-        parent::Destroy();
     }
 
     public function ApplyChanges()
@@ -40,6 +42,11 @@ class ArchivdatenAnomalien extends IPSModule
 
         $checkedVariables = $this->ReadPropertyString('CheckedVariables');
         $this->SetBuffer('CheckedVariables', $checkedVariables);
+
+        //Der Webhook für den Löschbericht wird nicht mehr benötigt, alten Eintrag entfernen
+        if (IPS_GetKernelRunlevel() == KR_READY) {
+            $this->UnregisterHook('/hook/DeletionReport/' . $this->InstanceID);
+        }
     }
 
     public function GetConfigurationForm()
@@ -50,55 +57,64 @@ class ArchivdatenAnomalien extends IPSModule
 
         $Form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
 
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-        $loggedVariables = AC_GetAggregationVariables($archiveID, false);
-
+        //Es werden nur Zählervariablen (AggregationType 1) angeboten
         $listValues = [];
-
-        foreach ($loggedVariables as $variable) {
-            if ($variable['AggregationType'] == 1) {
-                $listValues[] = [
-                    'VariableID'        => $variable['VariableID'],
-                    'editable'          => false
-                ];
+        $archiveID = $this->getArchiveID();
+        if ($archiveID > 0) {
+            foreach (AC_GetAggregationVariables($archiveID, false) as $variable) {
+                if ($variable['AggregationType'] == 1) {
+                    $listValues[] = [
+                        'VariableID'        => $variable['VariableID'],
+                        'editable'          => false
+                    ];
+                }
             }
         }
-        $Form['elements'][0]['items'][0]['values'] = $listValues;
+        $this->setListValues($Form['elements'], 'allVariables', $listValues);
         return json_encode($Form);
     }
 
     public function deleteAnomalies($resultList)
     {
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
+        $archiveID = $this->getArchiveID();
+        if ($archiveID == 0) {
+            $this->showPopup($this->Translate('No archive control instance found.'));
+            return;
+        }
 
-        $deletedValues = [];
-        $affectedVariables = [];
+        $toDelete = [];
         foreach ($this->extractRows($resultList) as $row) {
             if (empty($row['Delete'])) {
                 continue;
             }
             $timeStamp = $this->getRowTimeStamp($row);
-            if ($timeStamp === null) {
-                continue;
+            if ($timeStamp !== null) {
+                $toDelete[] = ['row' => $row, 'timeStamp' => $timeStamp];
             }
-            AC_DeleteVariableData($archiveID, (int) $row['VariableID'], $timeStamp, $timeStamp);
-            $deletedValues[] = $row;
-            $affectedVariables[(int) $row['VariableID']] = true;
         }
 
-        $deleted = count($deletedValues);
+        $deleted = count($toDelete);
         if ($deleted == 0) {
             $this->showPopup($this->Translate('No anomalies selected.'));
             return;
         }
 
+        //Bericht zuerst schreiben, damit er auch bei einem Abbruch während des Löschens vorhanden ist
+        $this->arrayToCSV(array_column($toDelete, 'row'));
+        $this->SendDebug('Delete', $deleted . ' values', 0);
+
+        $affectedVariables = [];
+        foreach ($toDelete as $entry) {
+            $variableID = (int) $entry['row']['VariableID'];
+            AC_DeleteVariableData($archiveID, $variableID, $entry['timeStamp'], $entry['timeStamp']);
+            $affectedVariables[$variableID] = true;
+        }
         foreach (array_keys($affectedVariables) as $variableID) {
             AC_ReAggregateVariable($archiveID, $variableID);
         }
-        $this->arrayToCSV($deletedValues);
 
         if ($deleted == 1) {
-            $this->showPopup($deleted . ' ' . $this->Translate('anomalie deleted.'));
+            $this->showPopup($deleted . ' ' . $this->Translate('anomaly deleted.'));
         } else {
             $this->showPopup($deleted . ' ' . $this->Translate('anomalies have been deleted.'));
         }
@@ -106,7 +122,14 @@ class ArchivdatenAnomalien extends IPSModule
         //Liste mit den gleichen Parametern wie bei der letzten Prüfung neu laden
         $lastCheck = json_decode($this->GetBuffer('LastCheck'), true);
         if (is_array($lastCheck)) {
-            $resultListValues = $this->collectAnomalies((bool) $lastCheck['rawData'], (int) $lastCheck['startDate'], (int) $lastCheck['endDate'], (array) $lastCheck['variableIDs']);
+            $resultListValues = $this->collectAnomalies(
+                (bool) $lastCheck['rawData'],
+                (int) $lastCheck['startDate'],
+                (int) $lastCheck['endDate'],
+                (array) $lastCheck['variableIDs'],
+                (float) $lastCheck['threshold'],
+                (int) $lastCheck['thresholdType']
+            );
             $this->UpdateFormField('resultList', 'values', json_encode($resultListValues));
         }
     }
@@ -123,6 +146,11 @@ class ArchivdatenAnomalien extends IPSModule
 
     public function checkAnomalies(bool $rawData = false, $startDate = null, $endDate = null)
     {
+        if ($this->getArchiveID() == 0) {
+            $this->showPopup($this->Translate('No archive control instance found.'));
+            return [];
+        }
+
         //Datum aus dem Formular verwenden, sonst die gespeicherte Konfiguration
         $start = $this->parseDate($startDate ?? $this->ReadPropertyString('StartDate'), false);
         $end = $this->parseDate($endDate ?? $this->ReadPropertyString('EndDate'), true);
@@ -143,17 +171,22 @@ class ArchivdatenAnomalien extends IPSModule
         }
         $variableIDs = array_map('intval', array_column($listVariableIDs, 'VariableID'));
 
+        $threshold = max(0.0, $this->ReadPropertyFloat('Threshold'));
+        $thresholdType = $this->ReadPropertyInteger('ThresholdType');
+
         $startDate = $start - 86400;
         $endDate = $end + 86400;
 
         $this->SetBuffer('LastCheck', json_encode([
-            'rawData'     => $rawData,
-            'startDate'   => $startDate,
-            'endDate'     => $endDate,
-            'variableIDs' => $variableIDs
+            'rawData'       => $rawData,
+            'startDate'     => $startDate,
+            'endDate'       => $endDate,
+            'variableIDs'   => $variableIDs,
+            'threshold'     => $threshold,
+            'thresholdType' => $thresholdType
         ]));
 
-        $resultListValues = $this->collectAnomalies($rawData, $startDate, $endDate, $variableIDs);
+        $resultListValues = $this->collectAnomalies($rawData, $startDate, $endDate, $variableIDs, $threshold, $thresholdType);
         $this->UpdateFormField('resultList', 'values', json_encode($resultListValues));
 
         return $resultListValues;
@@ -207,19 +240,30 @@ class ArchivdatenAnomalien extends IPSModule
         return 'data:text/csv;base64,' . base64_encode($csv);
     }
 
-    protected function ProcessHookData()
+    private function getArchiveID()
     {
-        $csv = $this->buildDeletionReport();
-        if ($csv == '') {
-            http_response_code(404);
-            echo $this->Translate('No deletion report available.');
-            return;
+        $ids = IPS_GetInstanceListByModuleID(self::ARCHIVE_CONTROL_GUID);
+        if (count($ids) == 0) {
+            return 0;
         }
+        return $ids[0];
+    }
 
-        header('Content-Type: text/csv;charset=utf-8');
-        header('Content-Length: ' . strlen($csv));
-        header('Content-Disposition: attachment; filename="' . $this->Translate('Deletion report') . '.csv"');
-        echo $csv;
+    /**
+     * Setzt die Werte einer Liste im Formular anhand ihres Namens, auch in verschachtelten Elementen.
+     */
+    private function setListValues(array &$elements, string $name, array $values)
+    {
+        foreach ($elements as &$element) {
+            if (($element['name'] ?? '') === $name) {
+                $element['values'] = $values;
+                return true;
+            }
+            if (isset($element['items']) && $this->setListValues($element['items'], $name, $values)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function buildDeletionReport()
@@ -228,45 +272,102 @@ class ArchivdatenAnomalien extends IPSModule
         if ($report == '') {
             return '';
         }
-        $csv = $this->Translate('Date') . ';' . $this->Translate('VariableID') . ';' . $this->Translate('Value before anomalie') . ';' . $this->Translate('Value') . ';' . $this->Translate('Value after anomalie') . PHP_EOL;
+        $csv = $this->Translate('Date') . ';' . $this->Translate('VariableID') . ';' . $this->Translate('Value before anomaly') . ';' . $this->Translate('Value') . ';' . $this->Translate('Value after anomaly') . PHP_EOL;
         return $csv . $report;
     }
 
-    private function collectAnomalies(bool $rawData, int $startDate, int $endDate, array $variableIDs)
+    private function collectAnomalies(bool $rawData, int $startDate, int $endDate, array $variableIDs, float $threshold, int $thresholdType)
     {
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-        $aggregationType = 1;
+        $archiveID = $this->getArchiveID();
+        if ($archiveID == 0) {
+            return [];
+        }
 
         //Schlüssel VariableID|TimeStamp verhindert Doppelte, ohne Treffer anderer Variablen zu verlieren
         $resultListValues = [];
+        $total = count($variableIDs);
+        $done = 0;
+        $this->setProgress(0, true);
         foreach ($variableIDs as $variableID) {
-            if (!$rawData) {
-                $values = AC_GetAggregatedValues($archiveID, $variableID, $aggregationType, $startDate, $endDate, 0);
-
-                $filteredValues = $this->filter_variable($values, $rawData, $variableID);
-
-                foreach ($filteredValues as $Value) {
-                    $valueEndDate = $Value['TimeStamp'];
-
-                    $rawValues = AC_GetLoggedValues($archiveID, $variableID, $valueEndDate, $endDate, 0);
-                    $filteredRawValues = $this->filter_variable($rawValues, true, $variableID);
-                    foreach ($filteredRawValues as $rawValue) {
-                        $resultListValues[$variableID . '|' . $rawValue['TimeStamp']] = $rawValue;
-                    }
-                }
+            if ($rawData) {
+                $windows = [[$startDate, $endDate]];
             } else {
-                $values = AC_GetLoggedValues($archiveID, $variableID, $startDate, $endDate, 0);
-                $filteredRawValues = $this->filter_variable($values, true, $variableID);
-                foreach ($filteredRawValues as $rawValue) {
+                //Auffällige Tage über die täglichen Mittelwerte finden und nur dort die Rohwerte prüfen
+                $values = AC_GetAggregatedValues($archiveID, $variableID, self::AGGREGATION_LEVEL_DAILY, $startDate, $endDate, 0);
+                $windows = [];
+                foreach ($this->filterVariable($values, false, $variableID, $threshold, $thresholdType) as $Value) {
+                    //Vorheriger, betroffener und folgender Tag
+                    $windows[] = [
+                        max($startDate, $Value['TimeStamp'] - 86400),
+                        min($endDate, $Value['TimeStamp'] + 2 * 86400 - 1)
+                    ];
+                }
+                $windows = $this->mergeWindows($windows);
+            }
+
+            foreach ($windows as $window) {
+                $rawValues = $this->getAllLoggedValues($archiveID, $variableID, $window[0], $window[1]);
+                foreach ($this->filterVariable($rawValues, true, $variableID, $threshold, $thresholdType) as $rawValue) {
                     $resultListValues[$variableID . '|' . $rawValue['TimeStamp']] = $rawValue;
                 }
             }
+
+            $done++;
+            $this->setProgress((int) round($done / $total * 100), true);
         }
+        $this->setProgress(100, false);
+        $this->SendDebug('Check', count($resultListValues) . ' anomalies in ' . $total . ' variables', 0);
+
         return array_values($resultListValues);
     }
 
     /**
-     * Wandelt ein SelectDate-Wert (JSON-String, Array oder Objekt) in einen Timestamp.
+     * Holt alle Rohwerte eines Zeitraums. AC_GetLoggedValues liefert höchstens 10000 Werte (neueste zuerst),
+     * deshalb wird bei vollem Ergebnis ab dem ältesten erhaltenen Wert weitergelesen.
+     */
+    private function getAllLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate)
+    {
+        $allValues = [];
+        while ($endDate >= $startDate) {
+            $chunk = AC_GetLoggedValues($archiveID, $variableID, $startDate, $endDate, 0);
+            $allValues = array_merge($allValues, $chunk);
+            if (count($chunk) < self::LOGGED_VALUES_LIMIT) {
+                break;
+            }
+            $endDate = $chunk[count($chunk) - 1]['TimeStamp'] - 1;
+        }
+        return $allValues;
+    }
+
+    /**
+     * Fasst sich überlappende oder direkt aufeinanderfolgende Zeitfenster zusammen.
+     */
+    private function mergeWindows(array $windows)
+    {
+        usort($windows, function ($a, $b)
+        {
+            return $a[0] <=> $b[0];
+        });
+        $merged = [];
+        foreach ($windows as $window) {
+            $last = count($merged) - 1;
+            if ($last >= 0 && $window[0] <= $merged[$last][1] + 1) {
+                $merged[$last][1] = max($merged[$last][1], $window[1]);
+            } else {
+                $merged[] = $window;
+            }
+        }
+        return $merged;
+    }
+
+    private function setProgress(int $percent, bool $visible)
+    {
+        $this->UpdateFormField('Progress', 'current', $percent);
+        $this->UpdateFormField('Progress', 'visible', $visible);
+    }
+
+    /**
+     * Wandelt einen SelectDate-Wert (JSON-String, Array oder Objekt) in einen Timestamp.
      * Gibt null zurück, wenn kein gültiges Datum gewählt ist.
      */
     private function parseDate($value, bool $endOfDay)
@@ -348,39 +449,54 @@ class ArchivdatenAnomalien extends IPSModule
         $this->WriteAttributeString('lastDeletedValues', $csv);
     }
 
-    private function filter_variable($logData, $rawData, $variableID)
+    /**
+     * Sucht Werte, die zwischen ihren beiden Nachbarn eine Spitze bilden (Richtungswechsel in beide
+     * Richtungen größer als der Schwellwert). Der Schwellwert ist absolut oder in Prozent des größten
+     * Betrags der drei Werte.
+     */
+    private function filterVariable(array $logData, bool $rawData, int $variableID, float $threshold, int $thresholdType)
     {
         $keyValue = 'Avg';
         if ($rawData) {
             $keyValue = 'Value';
         }
         $failedValues = [];
-        // Anzahl der Werte
-        $entries = count($logData);
+
+        //Neueste zuerst, wie vom Archiv geliefert (ValueBefore/ValueAfter hängen davon ab)
+        usort($logData, function ($a, $b)
+        {
+            return $b['TimeStamp'] <=> $a['TimeStamp'];
+        });
+
         // Macht erst ab 3 Werten Sinn
-        if ($entries < 2) {
+        $entries = count($logData);
+        if ($entries < 3) {
             return $failedValues;
         }
-        // Anzahl der Fehler protokolieren
-        $changes = 0;
         for ($i = 2; $i < $entries; $i++) {
-            // Differenz Wert2-Wert1
-            $diff1 = $logData[$i - 1][$keyValue] - $logData[$i - 2][$keyValue];
-            // Differenz Wert3-Wert2
-            $diff2 = $logData[$i][$keyValue] - $logData[$i - 1][$keyValue];
+            $newer = $logData[$i - 2][$keyValue];
+            $middle = $logData[$i - 1][$keyValue];
+            $older = $logData[$i][$keyValue];
+
+            $limit = $threshold;
+            if ($thresholdType == self::THRESHOLD_PERCENT) {
+                $limit = $threshold / 100 * max(abs($newer), abs($middle), abs($older));
+            }
+
+            // Differenz mittlerer - neuerer Wert und älterer - mittlerer Wert
+            $diff1 = $middle - $newer;
+            $diff2 = $older - $middle;
             // Wenn der mittlere Wert entweder der größte oder kleinste Wert ist stimmt was nicht
-            if ((($diff1 < -0.1) && ($diff2 > 0.1)) ||
-                            (($diff1 > 0.1) && ($diff2 < -0.1))) {
-                // lösche mittleren Wert
+            if ((($diff1 < -$limit) && ($diff2 > $limit)) ||
+                (($diff1 > $limit) && ($diff2 < -$limit))) {
                 $failedValues[] = [
                     'Date'        => date('d.m.Y H:i:s', $logData[$i - 1]['TimeStamp']),
                     'TimeStamp'   => $logData[$i - 1]['TimeStamp'],
                     'VariableID'  => $variableID,
-                    'ValueBefore' => $logData[$i][$keyValue],
-                    'Value'       => $logData[$i - 1][$keyValue],
-                    'ValueAfter'  => $logData[$i - 2][$keyValue]
+                    'ValueBefore' => $older,
+                    'Value'       => $middle,
+                    'ValueAfter'  => $newer
                 ];
-                $changes++;
             }
         }
         return $failedValues;
