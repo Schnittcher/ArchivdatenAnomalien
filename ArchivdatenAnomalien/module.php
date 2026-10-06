@@ -12,7 +12,7 @@ class ArchivdatenAnomalien extends IPSModule
 
     private const ARCHIVE_CONTROL_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
     private const EMPTY_DATE = '{"year":0,"month":0,"day":0}';
-    //Maximale Anzahl Werte pro AC_GetLoggedValues-Abfrage
+    //Ab dieser Anzahl Werte pro AC_GetLoggedValues-Abfrage kann das Ergebnis abgeschnitten sein
     private const LOGGED_VALUES_LIMIT = 10000;
     //Stufe für AC_GetAggregatedValues: 1 = täglich
     private const AGGREGATION_LEVEL_DAILY = 1;
@@ -322,8 +322,9 @@ class ArchivdatenAnomalien extends IPSModule
     }
 
     /**
-     * Holt alle Rohwerte eines Zeitraums. AC_GetLoggedValues liefert höchstens 10000 Werte (neueste zuerst),
-     * deshalb wird bei vollem Ergebnis ab dem ältesten erhaltenen Wert weitergelesen.
+     * Holt alle Rohwerte eines Zeitraums. AC_GetLoggedValues begrenzt die Anzahl (laut Dokumentation 10000,
+     * auf Kernel 9.1 wurden 50000 beobachtet) und liefert die neuesten zuerst. Ab 10000 Werten wird deshalb
+     * ab dem ältesten erhaltenen Wert weitergelesen, bis eine Abfrage weniger Werte liefert.
      */
     private function getAllLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate)
     {
