@@ -14,6 +14,8 @@ Zusätzlich erstellt das Modul eine Bericht mit allen Werten welche gelöscht wo
     - [5. Statusvariablen und Profile](#5-statusvariablen-und-profile)
     - [6. WebFront](#6-webfront)
     - [7. PHP-Befehlsreferenz](#7-php-befehlsreferenz)
+    - [8. Statuscodes und Fehlerdiagnose](#8-statuscodes-und-fehlerdiagnose)
+    - [9. Entwicklung und Tests](#9-entwicklung-und-tests)
 
 ### 1. Funktionsumfang
 
@@ -24,6 +26,7 @@ Zusätzlich erstellt das Modul eine Bericht mit allen Werten welche gelöscht wo
 ### 2. Voraussetzungen
 
 - IP-Symcon ab Version 8.1
+- Eine Archiv-Instanz (Archive Control) mit geloggten Variablen
 
 ### 3. Software-Installation
 
@@ -40,7 +43,7 @@ Name     | Beschreibung
 -------- | ------------------
 Alle geloggten Zählervariablen         | In dieser Liste werden alle geloggten Variablen angezeigt, die im Archiv als Zähler (Aggregationstyp "Zähler") konfiguriert sind. Sie können mit dem Button ">>" in die Liste der zu prüfenden Variablen aufgenommen werden.
 Überprüfung der Variablen auf Anomalien | In dieser Liste werden alle Variablen aufgelistet, welche zur Überprüfung ausgewählt wurden. Mit dem Button "<<" können diese aus der Liste wieder entfernt werden.
-Startdatum | Das Startdatum, ab welchem Tag auf Anomalien geprüft werden soll.
+Startdatum | Das Startdatum, ab welchem Tag auf Anomalien geprüft werden soll. Standard: leer, ein Zeitraum muss vor der Überprüfung ausgewählt werden.
 Enddatum | Das Enddatum, bis welchem Tag auf Anomalien geprüft werden soll. Start- und Enddatum werden aus der gespeicherten Konfiguration gelesen, Änderungen müssen daher vor der Überprüfung mit "Änderungen übernehmen" gespeichert werden.
 Schwellwert | Ab welcher Abweichung ein Wert als Anomalie gilt. Ein Wert wird erkannt, wenn er sich von beiden Nachbarwerten in entgegengesetzter Richtung um mehr als den Schwellwert unterscheidet (Spitze nach oben oder unten). Standard: 0,1.
 Art des Schwellwerts | "Absolut": Der Schwellwert gilt als Wert der Variable. "Relativ": Der Schwellwert gilt in Prozent des größten Betrags der drei betrachteten Werte.
@@ -56,16 +59,16 @@ Es werden keine Variablen oder Profile angelegt.
 
 ### 6. WebFront
 
-Es gibt eine Funktionalität im Webfront.
+Das Modul hat keine Darstellung im WebFront. Es wird über das Konfigurationsformular der Instanz bedient.
 
 ### 7. PHP-Befehlsreferenz
 
 Die Funktionen werden vom Konfigurationsformular genutzt und können auch in Skripten aufgerufen werden.
 
 ```php
-AA_checkAnomalies(int $InstanzID, bool $Rohdaten, $Startdatum, $Enddatum): array
+AA_checkAnomalies(int $InstanzID, bool $Rohdaten): array
 ```
-Prüft die ausgewählten Variablen und gibt die gefundenen Anomalien zurück (Date, TimeStamp, VariableID, ValueBefore, Value, ValueAfter). `$Startdatum` und `$Enddatum` sind SelectDate-Werte als JSON (`{"year":2026,"month":10,"day":1}`), bei `null` wird die gespeicherte Konfiguration verwendet. Alle Parameter müssen angegeben werden.
+Prüft die ausgewählten Variablen im gespeicherten Zeitraum mit dem gespeicherten Schwellwert und gibt die gefundenen Anomalien zurück (Date, TimeStamp, VariableID, ValueBefore, Value, ValueAfter). Bei ungültigem Zeitraum wird eine leere Liste zurückgegeben.
 
 ```php
 AA_deleteAnomalies(int $InstanzID, $Liste)
@@ -86,4 +89,21 @@ Fügt eine Variable zur Liste der zu prüfenden Variablen hinzu bzw. entfernt si
 ```php
 AA_DownloadDeletionReport(int $InstanzID): string
 ```
-Gibt den letzten Löschungsbericht als Data-URL (`data:text/csv;base64,…`) zurück.
+Gibt den letzten Löschungsbericht als Data-URL (`data:text/csv;base64,…`) zurück. Ist noch kein Bericht vorhanden, wird ein Hinweistext zurückgegeben.
+
+### 8. Statuscodes und Fehlerdiagnose
+
+Status | Bedeutung
+------ | ---------
+102 | Das Modul ist aktiv.
+201 | Der Schwellwert ist negativ.
+202 | Die Art des Schwellwerts ist unbekannt.
+203 | Das Startdatum liegt nach dem Enddatum.
+
+Ein leerer Zeitraum ist beim Übernehmen zulässig. Er wird erst bei der Überprüfung verlangt, dann erscheint der Hinweis, einen gültigen Zeitraum auszuwählen.
+
+Wird keine Archiv-Instanz gefunden, meldet das Modul dies beim Prüfen und Löschen. Hinweise zur Ausführung stehen im Debug-Fenster der Instanz.
+
+### 9. Entwicklung und Tests
+
+Die Tests liegen unter `tests/` (PHPUnit mit den Symcon-Stubs als Submodul `tests/stubs`). Die Prüfung im Modulordner läuft mit dem Kommando `symcon-check`. Repository nach dem Klonen mit `git submodule update --init --recursive` vervollständigen.
