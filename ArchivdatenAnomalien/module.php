@@ -8,6 +8,9 @@ class ArchivdatenAnomalien extends IPSModuleStrict
     private const EMPTY_DATE = '{"year":0,"month":0,"day":0}';
     //Blockgröße der Rohwert-Abfragen (Maximum von AC_GetLoggedValues laut Dokumentation)
     private const LOGGED_VALUES_LIMIT = 10000;
+    //Höchstzahl angezeigter Anomalien je Überprüfung. Bei zu kleinem Schwellwert gilt fast jeder Wert als Anomalie,
+    //die Trefferliste würde das PHP-Speicherlimit sprengen und wäre im Formular nicht zu bedienen.
+    private const MAX_RESULTS = 1000;
     //Stufe für AC_GetAggregatedValues: 1 = täglich
     private const AGGREGATION_LEVEL_DAILY = 1;
     //Schwellwert-Arten
@@ -18,6 +21,9 @@ class ArchivdatenAnomalien extends IPSModuleStrict
     private const STATUS_THRESHOLD_NEGATIVE = 201;
     private const STATUS_THRESHOLD_TYPE_INVALID = 202;
     private const STATUS_DATE_RANGE_INVALID = 203;
+
+    //Ergebnis der letzten collectAnomalies()-Ausführung war auf MAX_RESULTS begrenzt
+    private bool $resultTruncated = false;
 
     public function Create(): void
     {
@@ -184,6 +190,9 @@ class ArchivdatenAnomalien extends IPSModuleStrict
 
         $resultListValues = $this->collectAnomalies($rawData, $startDate, $endDate, $variableIDs, $threshold, $thresholdType);
         $this->UpdateFormField('resultList', 'values', json_encode($resultListValues));
+        if ($this->resultTruncated) {
+            $this->showPopup(sprintf($this->Translate('More than %d anomalies found, only the newest are shown. Increase the threshold or reduce the date range.'), self::MAX_RESULTS));
+        }
 
         return $resultListValues;
     }
@@ -301,6 +310,7 @@ class ArchivdatenAnomalien extends IPSModuleStrict
 
         //Schlüssel VariableID|TimeStamp verhindert Doppelte, ohne Treffer anderer Variablen zu verlieren
         $resultListValues = [];
+        $this->resultTruncated = false;
         $total = count($variableIDs);
         $done = 0;
         $this->setProgress(0, true);
@@ -322,8 +332,18 @@ class ArchivdatenAnomalien extends IPSModuleStrict
             }
 
             foreach ($windows as $window) {
-                foreach ($this->scanLoggedValues($archiveID, $variableID, $window[0], $window[1], $threshold, $thresholdType) as $rawValue) {
+                $remaining = self::MAX_RESULTS - count($resultListValues);
+                if ($remaining <= 0) {
+                    $this->resultTruncated = true;
+                    break 2;
+                }
+                $truncated = false;
+                foreach ($this->scanLoggedValues($archiveID, $variableID, $window[0], $window[1], $threshold, $thresholdType, $remaining, $truncated) as $rawValue) {
                     $resultListValues[$variableID . '|' . $rawValue['TimeStamp']] = $rawValue;
+                }
+                if ($truncated) {
+                    $this->resultTruncated = true;
+                    break 2;
                 }
             }
 
@@ -342,8 +362,10 @@ class ArchivdatenAnomalien extends IPSModuleStrict
      * LOGGED_VALUES_LIMIT Werte gleichzeitig im Speicher (das PHP-Speicherlimit von Symcon ist klein).
      * Die beiden ältesten Werte eines Blocks werden dem nächsten vorangestellt, damit auch Spitzen
      * an der Blockgrenze erkannt werden.
+     * Die Suche endet, sobald mehr als $maxResults Treffer vorliegen. Dann gibt die Methode die neuesten
+     * $maxResults Treffer zurück und setzt $truncated.
      */
-    private function scanLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate, float $threshold, int $thresholdType): array
+    private function scanLoggedValues(int $archiveID, int $variableID, int $startDate, int $endDate, float $threshold, int $thresholdType, int $maxResults, bool &$truncated): array
     {
         $found = [];
         $overlap = [];
@@ -353,7 +375,14 @@ class ArchivdatenAnomalien extends IPSModuleStrict
             if ($count == 0) {
                 break;
             }
-            $found = array_merge($found, $this->filterVariable(array_merge($overlap, $chunk), true, $variableID, $threshold, $thresholdType));
+            //Einzeln anhängen statt array_merge(): das Kopieren der wachsenden Liste kostete den meisten Speicher
+            foreach ($this->filterVariable(array_merge($overlap, $chunk), true, $variableID, $threshold, $thresholdType) as $row) {
+                $found[] = $row;
+            }
+            if (count($found) > $maxResults) {
+                $truncated = true;
+                return array_slice($found, 0, $maxResults);
+            }
             if ($count < self::LOGGED_VALUES_LIMIT) {
                 break;
             }

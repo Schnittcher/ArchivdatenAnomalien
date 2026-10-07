@@ -21,7 +21,7 @@ Enddatum | Letzter Tag der Überprüfung, gleiche Regeln wie beim Startdatum. Li
 Schwellwert | Ab welcher Abweichung ein Wert als Anomalie gilt. Erkannt wird ein Wert, der sich von seinen beiden Nachbarwerten in entgegengesetzter Richtung um mehr als den Schwellwert unterscheidet (Spitze nach oben oder unten). Standard: 0,1. Ein negativer Wert setzt die Instanz in den Status 201.
 Art des Schwellwerts | "Absolut" (Standard): Der Schwellwert gilt als Wert der Variable. "Relativ": Der Schwellwert gilt in Prozent des größten Betrags der drei betrachteten Werte. Ein unbekannter Wert setzt die Instanz in den Status 202.
 Rohdaten | Ob die Rohdaten oder aggregierte Daten geprüft werden. Bei aggregierten Daten werden zunächst die Tagesmittelwerte geprüft und nur an auffälligen Tagen (sowie am Vor- und Folgetag) die Rohdaten untersucht.
-Überprüfe auf Anomalien | Startet die Überprüfung. Ein Fortschrittsbalken zeigt den Stand je Variable.
+Überprüfe auf Anomalien | Startet die Überprüfung. Ein Fortschrittsbalken zeigt den Stand je Variable. Angezeigt werden höchstens 1000 Anomalien, die neuesten zuerst. Werden mehr gefunden, erscheint ein Hinweis, den Schwellwert zu erhöhen oder den Zeitraum zu verkleinern.
 Liste mit Anomalien | Zeigt je Anomalie den Wert vor und nach dem auffälligen Wert sowie den Wert selbst. In der Spalte "Löschen" werden die Einträge ausgewählt, die gelöscht werden sollen.
 Alle zu löschenden Einträge auswählen | Markiert alle Einträge der Liste zum Löschen.
 Ausgewählte Anomalien löschen | Löscht die markierten Werte nach einer Rückfrage unwiderruflich aus dem Archiv und aggregiert die betroffenen Variablen neu. Danach wird die Liste mit den Einstellungen der letzten Überprüfung neu geladen. Ohne Auswahl wird nichts gelöscht.
@@ -34,7 +34,7 @@ Das Modul legt keine Variablen und keine Profile an.
 Die Funktionen werden vom Konfigurationsformular genutzt und können auch in Skripten aufgerufen werden.
 
 `array AA_checkAnomalies(integer $InstanzID, boolean $Rohdaten);`
-Prüft die ausgewählten Variablen im gespeicherten Zeitraum mit dem gespeicherten Schwellwert und gibt die gefundenen Anomalien zurück (Date, TimeStamp, VariableID, ValueBefore, Value, ValueAfter). Bei ungültigem Zeitraum wird eine leere Liste zurückgegeben.
+Prüft die ausgewählten Variablen im gespeicherten Zeitraum mit dem gespeicherten Schwellwert und gibt die gefundenen Anomalien zurück (Date, TimeStamp, VariableID, ValueBefore, Value, ValueAfter), höchstens 1000 Einträge, die neuesten zuerst. Bei ungültigem Zeitraum wird eine leere Liste zurückgegeben.
 
 `void AA_deleteAnomalies(integer $InstanzID, mixed $Liste);`
 Löscht die Einträge der übergebenen Liste, bei denen `Delete` gesetzt ist, aus dem Archiv und aggregiert die betroffenen Variablen neu.

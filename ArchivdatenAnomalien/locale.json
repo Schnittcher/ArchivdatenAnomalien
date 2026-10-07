@@ -30,6 +30,7 @@
             "Start date must not be after end date.": "Das Startdatum darf nicht nach dem Enddatum liegen.",
             "No deletion report available.": "Es ist kein Löschungsbericht vorhanden.",
             "No archive control instance found.": "Es wurde keine Archiv-Instanz gefunden.",
+            "More than %d anomalies found, only the newest are shown. Increase the threshold or reduce the date range.": "Es wurden mehr als %d Anomalien gefunden, angezeigt werden nur die neuesten. Schwellwert erhöhen oder Zeitraum verkleinern.",
             "Module is active": "Das Modul ist aktiv",
             "Threshold must not be negative": "Der Schwellwert darf nicht negativ sein",
             "Unknown threshold type": "Unbekannte Art des Schwellwerts",

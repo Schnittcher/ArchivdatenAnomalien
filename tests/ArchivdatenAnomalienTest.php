@@ -243,6 +243,34 @@ class ArchivdatenAnomalienTest extends TestCase
         ];
     }
 
+    public function testResultsAreLimitedForVeryNoisyData(): void
+    {
+        //Jeder Wert weicht von beiden Nachbarn ab: 1500 Werte ergeben 1498 Spitzen (Index 1 bis 1498)
+        $this->addAlternatingSeries(1500, 60);
+        $this->configure(1, 8);
+
+        $rows = AA_checkAnomalies($this->instanceID, true);
+
+        //Höchstens 1000 Zeilen, und es sind die neuesten (Index 499 bis 1498)
+        $this->assertCount(1000, $rows);
+        $timeStamps = array_column($rows, 'TimeStamp');
+        $this->assertSame($this->dayStart + 1498 * 60, max($timeStamps));
+        $this->assertSame($this->dayStart + 499 * 60, min($timeStamps));
+    }
+
+    public function testExactlyAtTheLimitAllResultsAreReturned(): void
+    {
+        //1002 Werte ergeben genau 1000 Spitzen (Index 1 bis 1000)
+        $this->addAlternatingSeries(1002, 60);
+        $this->configure(1, 8);
+
+        $timeStamps = array_column(AA_checkAnomalies($this->instanceID, true), 'TimeStamp');
+
+        $this->assertCount(1000, $timeStamps);
+        $this->assertSame($this->dayStart + 1000 * 60, max($timeStamps));
+        $this->assertSame($this->dayStart + 60, min($timeStamps));
+    }
+
     public function testConfigurationFormListsOnlyCounterVariables(): void
     {
         $standardVariable = IPS_CreateVariable(2);
@@ -293,6 +321,21 @@ class ArchivdatenAnomalienTest extends TestCase
             $values[] = [
                 'TimeStamp' => $this->dayStart + $index * $interval,
                 'Value'     => 100.0 + 0.01 * sin($index / 5) + ($spikes[$index] ?? 0.0)
+            ];
+        }
+        AC_AddLoggedValues($this->archiveID, $this->variableID, $values);
+    }
+
+    /**
+     * Legt eine Reihe an, in der jeder Wert gegenüber seinen Nachbarn eine Spitze ist (100 und 102 im Wechsel).
+     */
+    private function addAlternatingSeries(int $count, int $interval): void
+    {
+        $values = [];
+        for ($index = 0; $index < $count; $index++) {
+            $values[] = [
+                'TimeStamp' => $this->dayStart + $index * $interval,
+                'Value'     => ($index % 2 == 0) ? 100.0 : 102.0
             ];
         }
         AC_AddLoggedValues($this->archiveID, $this->variableID, $values);
