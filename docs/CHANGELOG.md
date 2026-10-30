@@ -1,22 +1,27 @@
 # Changelog
 
-## 07.10.2026 - Version 2.0
+## 06.10.2026 - Version 2.0 (Beta Version)
 
 ### Neu
-- Schwellwert einstellbar, absolut oder relativ in Prozent (Standard unverändert 0,1).
-- Angezeigt werden höchstens 1000 Anomalien, die neuesten zuerst. Bei mehr Treffern, zum Beispiel bei stark schwankenden Werten und zu kleinem Schwellwert, erscheint ein Hinweis, Schwellwert oder Zeitraum anzupassen.
-- Rückfrage vor dem Löschen.
-- Der Löschungsbericht wird vor dem Löschen erstellt und direkt als CSV-Datei heruntergeladen.
-- Fortschrittsbalken bei der Überprüfung und Statusanzeige bei ungültigem Schwellwert oder Zeitraum.
-- Achtung: Das Modul benötigt jetzt IP-Symcon 8.1 oder neuer.
-- Achtung: Der Webhook für den Löschungsbericht entfällt, ein alter Eintrag im WebHook-Control kann gelöscht werden.
+- Schwellwert einstellbar, absolut oder relativ in Prozent (Standard unverändert 0,1)
+- Rückfrage vor dem Löschen
+- Löschbericht wird vor dem Löschen erstellt und direkt als CSV heruntergeladen
+- Fortschrittsbalken während der Prüfung
+- Umstellung auf `IPSModuleStrict`
 
 ### Fixes
-- Der Zeitraum wurde falsch berechnet, Start- und Enddatum werden jetzt geprüft.
-- Nach dem Löschen werden alle betroffenen Variablen neu aggregiert, nicht nur die zuletzt gelöschte.
-- Anomalien verschiedener Variablen mit gleichem Zeitstempel gingen verloren.
-- Löschen rund um die Zeitumstellung traf falsche Zeitpunkte.
-- Das Entfernen einer nicht vorhandenen Variable aus der Prüfliste löschte den ersten Eintrag.
-- Die Neuprüfung nach dem Löschen nutzte immer aggregierte Daten, auch bei Auswahl von Rohdaten.
-- Bei großen Archiven wurden ältere Anomalien nicht gefunden.
-- Der aggregierte Modus ist deutlich schneller.
+- Zeitraum wurde falsch berechnet (Datumsfehler), Start- und Enddatum werden jetzt geprüft
+- Beim Löschen wurde nur die letzte Variable neu aggregiert, jetzt alle betroffenen
+- Treffer verschiedener Variablen mit gleichem Zeitstempel gingen verloren
+- Falsche Zeitpunkte beim Löschen rund um die Zeitumstellung, es wird jetzt der echte Zeitstempel verwendet
+- Entfernen einer nicht vorhandenen Variable aus der Prüfliste löschte den ersten Eintrag
+- Neuprüfung nach dem Löschen verwendete immer aggregierte Daten
+- Speicherfehler bei sehr vielen Rohwerten (ca. 250.000 und mehr), die Daten werden jetzt blockweise geprüft
+- Abgeschnittene Archivabfragen: ältere Anomalien wurden nicht gefunden
+- Aggregierter Modus prüft Rohdaten nur noch am auffälligen Tag sowie Vor- und Folgetag (deutlich schneller)
+- Tippfehler und fehlende Übersetzungen korrigiert
+
+## 07.07.2023 - Version 1.0 (Stable)
+
+### Neu
+- Erste stabile Version.
