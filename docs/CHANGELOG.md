@@ -1,5 +1,8 @@
-# 07.10.2026 - Version 2.0
-## Neu
+# Changelog
+
+## 07.10.2026 - Version 2.0
+
+### Neu
 - Schwellwert einstellbar, absolut oder relativ in Prozent (Standard unverändert 0,1).
 - Angezeigt werden höchstens 1000 Anomalien, die neuesten zuerst. Bei mehr Treffern, zum Beispiel bei stark schwankenden Werten und zu kleinem Schwellwert, erscheint ein Hinweis, Schwellwert oder Zeitraum anzupassen.
 - Rückfrage vor dem Löschen.
@@ -8,7 +11,7 @@
 - Achtung: Das Modul benötigt jetzt IP-Symcon 8.1 oder neuer.
 - Achtung: Der Webhook für den Löschungsbericht entfällt, ein alter Eintrag im WebHook-Control kann gelöscht werden.
 
-## Fixes
+### Fixes
 - Der Zeitraum wurde falsch berechnet, Start- und Enddatum werden jetzt geprüft.
 - Nach dem Löschen werden alle betroffenen Variablen neu aggregiert, nicht nur die zuletzt gelöschte.
 - Anomalien verschiedener Variablen mit gleichem Zeitstempel gingen verloren.
